@@ -21,22 +21,24 @@ class Mapping(ContextManager):
   def __init__(
     self,
     method: MapMethod,
-    **initials: MapInits
+    **inits: MapInits
   ) -> None:
     ...
     self.__mapped = mapping(
       method,
-      **initials
+      **inits
     )
     
   def __call__(
     self,
-    *items: MapArgs
+    *items: MapItems,
+    **inits: MapInits
   ) -> MapReturn:
     ...
     __result: MapReturn = (
       self.__mapped(
-        *items
+        *items,
+        **inits
       )
     )
       
@@ -62,26 +64,41 @@ class Binding(ContextManager):
   
   def __init__(
     self,
-    *methods: BindMethods,
-    **initials: BindKeyArgs
+    *items: BindItems,
+    **inits: BindInits
   ) -> None:
     ...
     self.__bound = binding(
-      *methods,
-      **initials
+      *items,
+      **inits
     )
     
   def __call__(
     self,
-    *args: BindArgs
-  ) -> ReturnType:
+    *items: BindItems,
+    **inits: BindInits
+  ) -> ReturnType | "Binding":
     ...
     __result = (
       self.__bound(
-        *args,
+        *items,
+        **inits
       )
     )
-      
+    
+    (
+      __result,
+      self.__bound
+    ) = (
+      self,
+      __result
+    ) if callable(
+      __result
+    ) else (
+      __result,
+      self.__bound
+    )
+    
     return __result
   
   def __enter__(
@@ -100,7 +117,7 @@ class Binding(ContextManager):
 
 class Singleton(ContextManager):
   ...
-  __instance: ObjectType
+  __instance: object
   
   def __new__(
     self,

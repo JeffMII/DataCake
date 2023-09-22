@@ -8,7 +8,7 @@ from typing import Callable, NamedTuple
 from functools import partial, reduce, wraps
 
 __all__: tuple = (
-  "mapping", "reduction", "binding",
+  "mapping", "binding",
   "singleton", "timing"
 )
 
@@ -84,31 +84,31 @@ __all__: tuple = (
 
 def mapping(
   method: MapMethod=None,
-  **initials: MapInits
+  **inits: MapInits
 ) -> Mapper | Mapped:
   ...
   def _mapping(
-    method: MapMethod
+    _method: MapMethod
   ) -> Mapped:
     ...
-    @wraps(method)
+    @wraps(_method)
     def __mapping(
-      *items: MapItems,
-      **inits: MapInits
+      *__items: MapItems,
+      **__inits: MapInits
     ) -> MapReturn:
       ...
-      inits |= initials
+      __inits |= inits
       
       __mapped = map(
         partial(
-          method,
-          **inits
-        ), *items
+          _method,
+          **__inits
+        ), *__items
       )
       
       return tuple(
         __mapped
-      ) and inits
+      ) and __inits
       
     return __mapping
   
@@ -228,147 +228,133 @@ def mapping(
 #   return __binding
 
 def binding(
-  *args: BindItems,
-  **kwargs: BindInits
+  *items: BindItems,
+  **inits: BindInits
 ) -> Bound:
   ...
   def _binding(
-    *args: BindItems,
-    _args: BindItems=(),
-    _methods: BindMethods=(),
-    _kwargs: BindInits={},
-    **kwargs: BindInits
+    *items: BindItems,
+    _items: BindItems,
+    _methods: BindMethods,
+    _inits: BindInits,
+    **inits: BindInits
   ) -> ReturnType:
     ...
     def __binding(*,
-      __args: BindItems,
+      __items: BindItems,
       __method: MethodType,
       __methods: BindMethods,
-      __kwargs: BindInits
+      __inits: BindInits
     ) -> ReturnType:
       ...
       __result: ReturnType = (
         __method(
-          *__args,
-          **__kwargs
+          *__items,
+          **__inits
         )
       )
       
-      for method in reversed(_args[:-1]):
-        ...
-        __result = method(
-          *__result
-        )
-        
-      return __result
-    
+      return __binding(
+        __items=(__result,),
+        __method=__methods[-1],
+        __methods=__methods[:-1],
+        __inits=__inits
+      ) if (
+        len(__methods)
+      ) else __result
+      
     (
-      _args,
+      _items,
       _method,
-      _methods,
-      _kwargs
+      _methods
     ) = (
-      _args,
+      _items,
       _methods[-1],
-      _methods[:-1],
-      _kwargs | kwargs      
-    ) if not len(
-      args
+      _methods[:-1]
+    ) if (
+      not len(items)
     ) else (
-      _args,
-      None,
-      _methods + args,
-      _kwargs | kwargs
-    ) if all(
-      map(
+      _items, None,
+      _methods + items
+    ) if (
+      all(map(
         callable,
-        args
-      )
+        items
+      ))
     ) else (
-      
-    ) if any(
-      map(
+      _items + (
+        arg 
+        for arg in items
+        if not callable(arg)
+      ), (
+        arg
+        for arg in items
+        if callable(arg)
+      )[-1], _methods + (
+        arg
+        for arg in items
+        if callable(arg)
+      )[:-1]
+    ) if (
+      any(map(
         callable,
-        args
-      )
+        items
+      ))
     ) else (
-      _args + args,
+      _items + items,
       _methods[-1],
-      _methods[:-1],
-      _kwargs | kwargs
+      _methods[:-1]
     )
     
-    return (
-      __binding(
-        __args=_args,
-        __method=_method,
-        __methods=_methods,
-        __kwargs=_kwargs
-      )
-    ) if _method else (
-      partial(
-        _binding,
-        _args=_args,
-        _methods=_methods,
-        _kwargs=_kwargs
-      )
+    _inits |= inits
+    
+    return __binding(
+      __items=_items,
+      __method=_method,
+      __methods=_methods,
+      __inits=_inits
+    ) if (
+      _method
+    ) else partial(
+      _binding,
+      _args=_items,
+      _methods=_methods,
+      _kwargs=_inits
     )
-    
-    # if not len(args):
-    #   ...
-    #   return __binding(
-    #     _args=_args,
-    #     _method=_methods[-1],
-    #     _methods=_methods[:-1],
-    #     _kwargs=_kwargs | kwargs
-    #   )
-    # elif all(map(callable, args)):
-    #   ...
-    #   return partial(
-    #     _binding,
-    #     _args=_args,
-    #     _methods=_methods + args,
-    #     _kwargs=_kwargs | kwargs
-    #   )
-    # elif any(map(callable, args)):
-    #   ...
-    #   for arg in args:
-    #     ...
-    #     if callable(arg):
-    #       _methods += (arg,)
-    #     else:
-    #       _args += (arg,)
-    #     return __binding(
-    #       __args=_args,
-    #       __method=_methods[-1],
-    #       __methods=_methods[:-1],
-    #       __kwargs=_kwargs | kwargs
-    #     )
-    # else:
-    #   ...
-    #   _args += args
-    #   return __binding(
-    #     __args=_args,
-    #     __method=_methods[-1],
-    #     __methods=_methods[:-1],
-    #     __kwargs=_kwargs | kwargs
-    #   )
-    
-    # return binding(
-    #   *(args + _args),
-    #   **(kwargs | _kwargs)
-    # ) if (
-    #   isinstance(
-    #     method, Callable
-    #   ) and len(_args) == 0
-    # ) else __binding(
-    #   __method=_args[-1],
-    #   __methods=_args[:-1],
-    #   __args=(method, *_args),
-    #   __kwargs=(kwargs | _kwargs)
-    # )
   
-  return _binding
+  (
+    items,
+    methods
+  ) = (
+    (), items
+  ) if (
+    all(map(
+      callable,
+      items
+    ))
+  ) else ((
+    arg 
+    for arg in items
+    if not callable(arg)
+  ), (
+    arg
+    for arg in items
+    if callable(arg)
+  )) if any(
+    map(
+      callable,
+      items
+    )
+  ) else (
+    items, ()
+  )
+  
+  return partial(
+    _binding,
+    _args=items,
+    _methods=methods,
+    _kwargs=inits
+  )
 
 # def binding(
 #   *methods: BindMethods,

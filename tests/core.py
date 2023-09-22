@@ -1,4 +1,4 @@
-from pancake.__core__ import *
+from pancake.src.__core__ import *
 
 def __encode():
   ...
